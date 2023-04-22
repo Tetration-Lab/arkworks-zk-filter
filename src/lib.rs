@@ -11,6 +11,9 @@ mod utils;
 ///
 /// The Bloom filter is a probabilistic data structure that can be used to test if an element is in a set.
 ///
+/// For the most optimized bits, the number of bits should be a multiple of the number of carrying bits in the field.
+/// For example, if the field is scalar field of BN254, then the number of bits should be a multiple of 253.
+///
 /// The false positive rate of the Bloom filter is `1 - e^(-k * n / m)`
 /// Where `k` is the number of hash functions, `n` is the number of elements in the set, and `m` is the number of bits in the Bloom filter.
 #[derive(Debug, Clone)]
