@@ -1,0 +1,27 @@
+[package]
+name = "arkworks-bloom-filter"
+version = "0.1.0"
+edition = "2021"
+repository = "https://github.com/Tetration-Lab/arkworks-bloom-filter"
+description = "Arkworks implementation of bloom filter"
+license = "LGPL-3.0-only"
+
+[dependencies]
+ark-ff = { version = "^0.3.0", default-features = false }
+ark-r1cs-std = { version = "^0.3.0", default-features = false }
+ark-std = { version = "^0.3.0", default-features = false }
+ark-relations = { version = "^0.3.0", default-features = false }
+ark-crypto-primitives = { version = "^0.3.0", default-features = false }
+
+arkworks-mimc = { version = "^0.2.0", default-features = false }
+
+[dev-dependencies]
+ark-std = { version = "^0.3.0", default-features = false }
+ark-bn254 = { version = "^0.3.0", default-features = false, features = ["curve"] }
+ark-groth16 = { version = "^0.3.0", default-features = false, features = ["parallel"] }
+arkworks-mimc = { version = "^0.2.0", default-features = false, features = ["r1cs", "mimc-7-91-bn254"] }
+
+
+[features]
+default = []
+r1cs = ["ark-crypto-primitives/r1cs"]
