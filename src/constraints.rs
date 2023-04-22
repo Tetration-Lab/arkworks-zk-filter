@@ -10,6 +10,7 @@ use ark_relations::r1cs::SynthesisError;
 
 use crate::utils::take_bits_gadget;
 
+/// Gadget for the `BloomFilter` struct.
 #[derive(Debug, Clone)]
 pub struct BloomFilterVar<
     const BITS: usize,
@@ -25,6 +26,7 @@ pub struct BloomFilterVar<
 pub struct PackedBitsVar<const BITS: usize, F: PrimeField>(pub Vec<FpVar<F>>);
 
 impl<const BITS: usize, F: PrimeField> ToConstraintFieldGadget<F> for PackedBitsVar<BITS, F> {
+    /// Converts the bits vector of the Bloom filter into a vector of field elements.
     fn to_constraint_field(&self) -> Result<Vec<FpVar<F>>, SynthesisError> {
         Ok(self.0.clone())
     }
