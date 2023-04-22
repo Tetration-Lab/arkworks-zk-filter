@@ -111,14 +111,12 @@ mod tests {
             Fr::zero(),
             round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
         ));
-        //vec![0; 256].to_field_elements();
         bloom_filter.insert(b"toyoyo");
         bloom_filter.insert(b"toyoyo!");
         let fs = bloom_filter
             .to_field_elements()
             .expect("Should convert to field elements");
-        println!("{:?}", fs.len());
-        println!("{:?}", fs);
+        assert_eq!(fs.len(), 1, "Should be one field element");
     }
 
     #[test]
@@ -128,7 +126,26 @@ mod tests {
             Fr::zero(),
             round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
         ));
+        assert!(bloom_filter.bits.iter().all(|b| !b), "Bits should be empty");
         let ind = bloom_filter.insert(b"hello");
-        assert_eq!(ind, 58);
+        assert!(bloom_filter.bits[ind], "Bit should be set");
+    }
+
+    #[test]
+    fn correct_contains() {
+        let mut bloom_filter = BloomFilterTest::new(MiMC::new(
+            1,
+            Fr::zero(),
+            round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
+        ));
+        bloom_filter.insert(b"hello");
+        assert!(
+            bloom_filter.contains(b"hello"),
+            "Bloom filter should contain input"
+        );
+        assert!(
+            !bloom_filter.contains(b"hello!"),
+            "Bloom filter should not contain input"
+        );
     }
 }
