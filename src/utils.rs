@@ -37,15 +37,15 @@ pub fn take_bits_gadget<F: PrimeField, T: ToBytesGadget<F> + R1CSVar<F>>(
 ) -> Result<FpVar<F>, SynthesisError> {
     use std::cmp::Ordering;
 
-    use ark_r1cs_std::{prelude::FieldVar, ToBitsGadget, ToConstraintFieldGadget};
+    use ark_r1cs_std::{prelude::FieldVar, ToBitsGadget};
 
     let n_bits = log2(max) as usize;
     let max_index = FpVar::constant(F::from(max as u64 - 1));
     let bits = value.to_bytes()?.to_bits_le()?;
     //let mut index = FpVar::new_witness(ns!(value.cs(), "index"), || Ok(F::zero()))?;
     let mut index = FpVar::zero();
-    for i in 0..n_bits {
-        index = &index + &bits[i].to_constraint_field()?[0];
+    for bit in bits.into_iter().take(n_bits) {
+        index = &index + &FpVar::from(bit);
     }
     index
         .is_cmp(&max_index, Ordering::Greater, false)?

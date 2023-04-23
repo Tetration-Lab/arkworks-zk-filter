@@ -4,7 +4,7 @@ use ark_r1cs_std::{
     fields::fp::FpVar,
     prelude::{Boolean, EqGadget, FieldVar},
     uint8::UInt8,
-    R1CSVar, ToBitsGadget,
+    ToBitsGadget,
 };
 use ark_relations::r1cs::SynthesisError;
 
@@ -104,9 +104,9 @@ impl<
         let hash = HG::evaluate(&self.hasher, input)?;
         let index = take_bits_gadget(&hash, BITS)?;
         let mut bits = self.packed_bits.bits()?;
-        for i in 0..BITS {
+        for (i, bit) in bits.iter_mut().enumerate() {
             let index_var = FpVar::constant(F::from(i as u64));
-            bits[i] = bits[i].or(&index_var.is_eq(&index)?)?;
+            *bit = bit.or(&index_var.is_eq(&index)?)?;
         }
         self.packed_bits = PackedBitsVar::new_from_bits(&bits)?;
         Ok(index)
@@ -119,9 +119,9 @@ impl<
         let index = take_bits_gadget(&hash, BITS)?;
         let bits = self.packed_bits.bits()?;
         let mut result = Boolean::FALSE;
-        for i in 0..BITS {
+        for (i, bit) in bits.iter().enumerate() {
             let index_var = FpVar::constant(F::from(i as u64));
-            result = result.or(&index_var.is_eq(&index)?.and(&bits[i])?)?;
+            result = result.or(&index_var.is_eq(&index)?.and(bit)?)?;
         }
         Ok(result)
     }
