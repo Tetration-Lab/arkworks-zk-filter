@@ -45,6 +45,22 @@ impl<const BITS: usize, F: PrimeField, H: CRH<Output = F>> BloomFilter<BITS, F, 
         Self { bits, hasher }
     }
 
+    /// Creates a new Bloom filter from an array of fields.
+    /// The fields are packed into bits.
+    pub fn new_from_packed_bits(packed_bits: &[F], hasher: H::Parameters) -> Self {
+        let max_size = F::Params::CAPACITY as usize;
+        assert!(packed_bits.len() * max_size >= BITS, "Not enough bits");
+        let bits = packed_bits
+            .iter()
+            .flat_map(|f| f.into_repr().to_bits_le())
+            .take(BITS)
+            .collect::<Vec<_>>();
+        Self {
+            bits: bits.try_into().expect("Failed to convert to sized array"),
+            hasher,
+        }
+    }
+
     /// Sets the bits of the Bloom filter.
     pub fn set_bits(&mut self, bits: [bool; BITS]) {
         self.bits = bits;
@@ -117,6 +133,19 @@ mod tests {
             .to_field_elements()
             .expect("Should convert to field elements");
         assert_eq!(fs.len(), 1, "Should be one field element");
+        assert_eq!(
+            BloomFilterTest::new_from_packed_bits(
+                &fs,
+                MiMC::new(
+                    1,
+                    Fr::zero(),
+                    round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
+                )
+            )
+            .bits,
+            bloom_filter.bits,
+            "Should be equal"
+        );
     }
 
     #[test]
