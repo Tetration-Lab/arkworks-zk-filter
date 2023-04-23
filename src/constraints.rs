@@ -41,10 +41,6 @@ impl<const BITS: usize, F: PrimeField> PackedBitsVar<BITS, F> {
         let elems = bits
             .chunks(max_size)
             .map(|chunk| -> Result<_, SynthesisError> {
-                println!(
-                    "{:?}",
-                    chunk.iter().map(|b| b.value().unwrap()).collect::<Vec<_>>()
-                );
                 //let mut f = FpVar::new_witness(bits[0].cs(), || Ok(F::zero()))?;
                 let mut f = FpVar::zero();
                 for (i, bit) in chunk.iter().enumerate() {
