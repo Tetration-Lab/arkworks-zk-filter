@@ -4,11 +4,14 @@ use ark_r1cs_std::{
     fields::fp::FpVar,
     prelude::{Boolean, EqGadget, FieldVar},
     uint8::UInt8,
-    R1CSVar, ToBitsGadget, ToConstraintFieldGadget,
+    R1CSVar, ToBitsGadget,
 };
 use ark_relations::r1cs::SynthesisError;
 
 use crate::utils::take_bits_gadget;
+
+mod traits;
+pub use traits::*;
 
 /// Gadget for the `BloomFilter` struct.
 #[derive(Debug, Clone)]
@@ -22,21 +25,9 @@ pub struct BloomFilterVar<
     pub hasher: HG::ParametersVar,
 }
 
+/// Gadget for a packed array of bits.
 #[derive(Debug, Clone)]
 pub struct PackedBitsVar<const BITS: usize, F: PrimeField>(pub Vec<FpVar<F>>);
-
-impl<const BITS: usize, F: PrimeField> ToConstraintFieldGadget<F> for PackedBitsVar<BITS, F> {
-    /// Converts the bits vector of the Bloom filter into a vector of field elements.
-    fn to_constraint_field(&self) -> Result<Vec<FpVar<F>>, SynthesisError> {
-        Ok(self.0.clone())
-    }
-}
-
-impl<const BITS: usize, F: PrimeField> EqGadget<F> for PackedBitsVar<BITS, F> {
-    fn is_eq(&self, other: &Self) -> Result<Boolean<F>, SynthesisError> {
-        self.0.is_eq(&other.0)
-    }
-}
 
 impl<const BITS: usize, F: PrimeField> PackedBitsVar<BITS, F> {
     pub fn new(fields: Vec<FpVar<F>>) -> Self {
@@ -76,18 +67,6 @@ impl<const BITS: usize, F: PrimeField> PackedBitsVar<BITS, F> {
             .flatten()
             .take(BITS)
             .collect())
-    }
-}
-
-impl<
-        const BITS: usize,
-        F: PrimeField,
-        H: CRH<Output = F>,
-        HG: CRHGadget<H, F, OutputVar = FpVar<F>>,
-    > ToConstraintFieldGadget<F> for BloomFilterVar<BITS, F, H, HG>
-{
-    fn to_constraint_field(&self) -> Result<Vec<FpVar<F>>, SynthesisError> {
-        Ok(self.packed_bits.0.clone())
     }
 }
 
