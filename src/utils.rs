@@ -47,7 +47,7 @@ pub fn take_bits_gadget<F: PrimeField, T: ToBytesGadget<F> + R1CSVar<F>>(
     for i in 0..n_bits {
         index = &index + &bits[i].to_constraint_field()?[0];
     }
-    Ok(index
+    index
         .is_cmp(&max_index, Ordering::Greater, false)?
-        .select(&(&index - &max_index), &index)?)
+        .select(&(&index - &max_index), &index)
 }

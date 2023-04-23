@@ -44,7 +44,7 @@ impl<const BITS: usize, F: PrimeField> PackedBitsVar<BITS, F> {
     }
 
     pub fn new_from_bits(bits: &[Boolean<F>]) -> Result<Self, SynthesisError> {
-        assert!(bits.len() > 0, "bits must not be empty");
+        assert!(!bits.is_empty(), "bits must not be empty");
         let max_size = F::Params::CAPACITY as usize;
         let zero = FpVar::zero();
         let elems = bits
@@ -58,8 +58,7 @@ impl<const BITS: usize, F: PrimeField> PackedBitsVar<BITS, F> {
                 let mut f = FpVar::zero();
                 for (i, bit) in chunk.iter().enumerate() {
                     f = &f
-                        + &bit
-                            .select(&FpVar::constant(F::from(2 as u64).pow([i as u64])), &zero)?;
+                        + &bit.select(&FpVar::constant(F::from(2_u64).pow([i as u64])), &zero)?;
                 }
                 Ok(f)
             })
@@ -201,7 +200,7 @@ mod tests {
             let before_bits = Vec::<FpVar<Fr>>::new_input(cs.clone(), || Ok(self.before_bits))?;
             let after_bits = Vec::<FpVar<Fr>>::new_input(cs.clone(), || Ok(self.after_bits))?;
             let input = Vec::<UInt8<Fr>>::new_witness(cs.clone(), || Ok(self.input))?;
-            let hasher = MiMCVar::new_constant(cs.clone(), self.hasher)?;
+            let hasher = MiMCVar::new_constant(cs, self.hasher)?;
 
             let mut filter = BloomFilterVarTest::new(before_bits, hasher);
             let _ = filter.insert(&input)?;
@@ -225,7 +224,7 @@ mod tests {
         ) -> ark_relations::r1cs::Result<()> {
             let bits = Vec::<FpVar<Fr>>::new_input(cs.clone(), || Ok(self.bits))?;
             let input = Vec::<UInt8<Fr>>::new_witness(cs.clone(), || Ok(self.input))?;
-            let hasher = MiMCVar::new_constant(cs.clone(), self.hasher)?;
+            let hasher = MiMCVar::new_constant(cs, self.hasher)?;
 
             let filter = BloomFilterVarTest::new(bits, hasher);
             let result = filter.contains(&input)?;
@@ -300,7 +299,7 @@ mod tests {
 
         filter.insert(b"1");
 
-        let bits = Vec::<Boolean<Fr>>::new_input(cs.clone(), || Ok(filter.bits.to_vec())).unwrap();
+        let bits = Vec::<Boolean<Fr>>::new_input(cs, || Ok(filter.bits.to_vec())).unwrap();
         let packed = PackedBitsVar::<BITS, _>::new_from_bits(&bits).expect("Should pack bits");
 
         let packed_value = packed.0.value().unwrap();
