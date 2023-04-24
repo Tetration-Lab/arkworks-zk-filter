@@ -4,7 +4,7 @@ use ark_r1cs_std::{
     fields::fp::FpVar,
     prelude::{Boolean, EqGadget, FieldVar},
     uint8::UInt8,
-    ToBitsGadget,
+    ToBitsGadget, ToBytesGadget,
 };
 use ark_relations::r1cs::SynthesisError;
 
@@ -17,6 +17,7 @@ pub use traits::*;
 #[derive(Debug, Clone)]
 pub struct BloomFilterVar<
     const BITS: usize,
+    const N_HASH: usize,
     F: PrimeField,
     H: CRH<Output = F>,
     HG: CRHGadget<H, F, OutputVar = FpVar<F>>,
@@ -68,10 +69,11 @@ impl<const BITS: usize, F: PrimeField> PackedBitsVar<BITS, F> {
 
 impl<
         const BITS: usize,
+        const N_HASH: usize,
         F: PrimeField,
         H: CRH<Output = F>,
         HG: CRHGadget<H, F, OutputVar = FpVar<F>>,
-    > BloomFilterVar<BITS, F, H, HG>
+    > BloomFilterVar<BITS, N_HASH, F, H, HG>
 {
     /// Creates a new Bloom filter from an array of fields.
     /// The fields are packed into bits.
@@ -100,29 +102,44 @@ impl<
 
     /// Inserts an input into the Bloom filter.
     /// Returns the index of the bit that was set.
-    pub fn insert(&mut self, input: &[UInt8<F>]) -> Result<FpVar<F>, SynthesisError> {
-        let hash = HG::evaluate(&self.hasher, input)?;
-        let index = take_bits_gadget(&hash, BITS)?;
+    pub fn insert(&mut self, input: &[UInt8<F>]) -> Result<Vec<FpVar<F>>, SynthesisError> {
+        let mut hashed = HG::evaluate(&self.hasher, input)?;
+        let mut indexes = vec![];
+        for _ in 0..N_HASH {
+            let index = take_bits_gadget(&hashed, BITS)?;
+            hashed = HG::evaluate(&self.hasher, &hashed.to_bytes()?)?;
+            indexes.push(index);
+        }
+
         let mut bits = self.packed_bits.bits()?;
         for (i, bit) in bits.iter_mut().enumerate() {
             let index_var = FpVar::constant(F::from(i as u64));
-            *bit = bit.or(&index_var.is_eq(&index)?)?;
+            let is_eq = indexes.iter().fold(Ok(Boolean::FALSE), |acc, index| {
+                acc?.or(&index_var.is_eq(index)?)
+            })?;
+            *bit = bit.or(&is_eq)?;
         }
         self.packed_bits = PackedBitsVar::new_from_bits(&bits)?;
-        Ok(index)
+
+        Ok(indexes)
     }
 
     /// Checks if an input is in the Bloom filter.
     /// Returns true if the input is in the Bloom filter.
     pub fn contains(&self, input: &[UInt8<F>]) -> Result<Boolean<F>, SynthesisError> {
-        let hash = HG::evaluate(&self.hasher, input)?;
-        let index = take_bits_gadget(&hash, BITS)?;
+        let mut hashed = HG::evaluate(&self.hasher, input)?;
         let bits = self.packed_bits.bits()?;
+
         let mut result = Boolean::FALSE;
-        for (i, bit) in bits.iter().enumerate() {
-            let index_var = FpVar::constant(F::from(i as u64));
-            result = result.or(&index_var.is_eq(&index)?.and(bit)?)?;
+        for _ in 0..N_HASH {
+            let index = take_bits_gadget(&hashed, BITS)?;
+            for (i, bit) in bits.iter().enumerate() {
+                let index_var = FpVar::constant(F::from(i as u64));
+                result = result.or(&index_var.is_eq(&index)?.and(bit)?)?;
+            }
+            hashed = HG::evaluate(&self.hasher, &hashed.to_bytes()?)?;
         }
+
         Ok(result)
     }
 }
@@ -152,9 +169,13 @@ mod tests {
     use super::BloomFilterVar;
 
     const BITS: usize = 8;
-    type BloomFilterTest = BloomFilter<BITS, Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>>;
+    const N_HASH: usize = 2;
+
+    type BloomFilterTest =
+        BloomFilter<BITS, N_HASH, Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>>;
     type BloomFilterVarTest = BloomFilterVar<
         BITS,
+        N_HASH,
         Fr,
         MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>,
         MiMCNonFeistelCRHGadget<Fr, MIMC_7_91_BN254_PARAMS>,

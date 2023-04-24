@@ -17,13 +17,13 @@ mod utils;
 /// The false positive rate of the Bloom filter is `1 - e^(-k * n / m)`
 /// Where `k` is the number of hash functions, `n` is the number of elements in the set, and `m` is the number of bits in the Bloom filter.
 #[derive(Debug, Clone)]
-pub struct BloomFilter<const BITS: usize, F: PrimeField, H: CRH<Output = F>> {
+pub struct BloomFilter<const BITS: usize, const N_HASH: usize, F: PrimeField, H: CRH<Output = F>> {
     pub bits: [bool; BITS],
     pub hasher: H::Parameters,
 }
 
-impl<const BITS: usize, F: PrimeField, H: CRH<Output = F>> ToConstraintField<F>
-    for BloomFilter<BITS, F, H>
+impl<const BITS: usize, const N_HASH: usize, F: PrimeField, H: CRH<Output = F>> ToConstraintField<F>
+    for BloomFilter<BITS, N_HASH, F, H>
 {
     /// Converts the bits vector of the Bloom filter into a vector of field elements.
     fn to_field_elements(&self) -> Option<Vec<F>> {
@@ -31,7 +31,9 @@ impl<const BITS: usize, F: PrimeField, H: CRH<Output = F>> ToConstraintField<F>
     }
 }
 
-impl<const BITS: usize, F: PrimeField, H: CRH<Output = F>> BloomFilter<BITS, F, H> {
+impl<const BITS: usize, const N_HASH: usize, F: PrimeField, H: CRH<Output = F>>
+    BloomFilter<BITS, N_HASH, F, H>
+{
     /// Creates a new Bloom filter.
     pub fn new(hasher: H::Parameters) -> Self {
         Self {
@@ -73,19 +75,29 @@ impl<const BITS: usize, F: PrimeField, H: CRH<Output = F>> BloomFilter<BITS, F, 
 
     /// Inserts an input into the Bloom filter.
     /// Returns the index of the bit that was set.
-    pub fn insert(&mut self, input: &[u8]) -> usize {
-        let hash = <H as CRH>::evaluate(&self.hasher, input).expect("Hash failed");
-        let pos = take_bits(&hash, BITS);
-        self.bits[pos] = true;
-        pos
+    pub fn insert(&mut self, input: &[u8]) -> [usize; N_HASH] {
+        let mut positions = [0; N_HASH];
+        let mut hashed = <H as CRH>::evaluate(&self.hasher, input).expect("Hash failed");
+        for i in 0..N_HASH {
+            let pos = take_bits(&hashed, BITS);
+            self.bits[pos] = true;
+            positions[i] = pos;
+            hashed = <H as CRH>::evaluate(&self.hasher, &hashed.into_repr().to_bytes_le())
+                .expect("Hash failed");
+        }
+        positions
     }
 
     /// Checks if an input is in the Bloom filter.
     /// Returns true if the input is in the Bloom filter.
     pub fn contains(&self, input: &[u8]) -> bool {
-        let hash = <H as CRH>::evaluate(&self.hasher, input).expect("Hash failed");
-        let pos = take_bits(&hash, BITS);
-        self.bits[pos]
+        let mut hashed = <H as CRH>::evaluate(&self.hasher, input).expect("Hash failed");
+        (0..N_HASH).all(|_| {
+            let pos = take_bits(&hashed, BITS);
+            hashed = <H as CRH>::evaluate(&self.hasher, &hashed.into_repr().to_bytes_le())
+                .expect("Hash failed");
+            self.bits[pos]
+        })
     }
 
     /// Converts the bits vector of the Bloom filter into a vector of field elements.
@@ -118,7 +130,10 @@ mod tests {
 
     use crate::BloomFilter;
 
-    type BloomFilterTest = BloomFilter<253, Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>>;
+    const BITS: usize = 253;
+    const N_HASH: usize = 2;
+    type BloomFilterTest =
+        BloomFilter<BITS, N_HASH, Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>>;
 
     #[test]
     fn correct_field_elements() {
@@ -156,8 +171,10 @@ mod tests {
             round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
         ));
         assert!(bloom_filter.bits.iter().all(|b| !b), "Bits should be empty");
-        let ind = bloom_filter.insert(b"hello");
-        assert!(bloom_filter.bits[ind], "Bit should be set");
+        let indexes = bloom_filter.insert(b"hello");
+        for index in indexes {
+            assert!(bloom_filter.bits[index], "Bit {index} should be set");
+        }
     }
 
     #[test]
