@@ -222,20 +222,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "arkworks-bloom-filter"
-version = "0.1.0"
-dependencies = [
- "ark-bn254",
- "ark-crypto-primitives",
- "ark-ff",
- "ark-groth16",
- "ark-r1cs-std",
- "ark-relations",
- "ark-std",
- "arkworks-mimc",
-]
-
-[[package]]
 name = "arkworks-mimc"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -246,6 +232,20 @@ dependencies = [
  "ark-r1cs-std",
  "ark-relations",
  "ark-std",
+]
+
+[[package]]
+name = "arkworks-zk-filter"
+version = "0.1.0"
+dependencies = [
+ "ark-bn254",
+ "ark-crypto-primitives",
+ "ark-ff",
+ "ark-groth16",
+ "ark-r1cs-std",
+ "ark-relations",
+ "ark-std",
+ "arkworks-mimc",
 ]
 
 [[package]]

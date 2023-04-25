@@ -1,8 +1,8 @@
 [package]
-name = "arkworks-bloom-filter"
+name = "arkworks-zk-filter"
 version = "0.1.0"
 edition = "2021"
-repository = "https://github.com/Tetration-Lab/arkworks-bloom-filter"
+repository = "https://github.com/Tetration-Lab/arkworks-zk-filter"
 description = "Arkworks implementation of bloom filter"
 license = "LGPL-3.0-only"
 
