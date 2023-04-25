@@ -1,4 +1,4 @@
-use std::fmt::Debug;
+use std::{borrow::Borrow, fmt::Debug};
 
 use ark_crypto_primitives::CRH;
 use ark_ff::{to_bytes, PrimeField, ToBytes, ToConstraintField};
@@ -58,11 +58,11 @@ where
 {
     type Parameter = Self;
 
-    fn insert(parameter: &mut Self::Parameter, key: &dyn AsRef<Key>) {
-        parameter.insert(&to_bytes!(key.as_ref()).expect("Failed to convert to bytes"));
+    fn insert(parameter: &mut Self::Parameter, key: &dyn Borrow<Key>) {
+        parameter.insert(&to_bytes!(key.borrow()).expect("Failed to convert to bytes"));
     }
 
-    fn contains(parameter: &Self::Parameter, key: &dyn AsRef<Key>) -> bool {
-        parameter.contains(&to_bytes!(key.as_ref()).expect("Failed to convert to bytes"))
+    fn contains(parameter: &Self::Parameter, key: &dyn Borrow<Key>) -> bool {
+        parameter.contains(&to_bytes!(key.borrow()).expect("Failed to convert to bytes"))
     }
 }

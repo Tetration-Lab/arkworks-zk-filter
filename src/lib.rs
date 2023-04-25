@@ -8,12 +8,14 @@ where
 {
     type Parameter: PartialEq + Clone + std::fmt::Debug;
 
-    fn insert(parameter: &mut Self::Parameter, key: &dyn AsRef<Key>);
-    fn contains(parameter: &Self::Parameter, key: &dyn AsRef<Key>) -> bool;
+    fn insert(parameter: &mut Self::Parameter, key: &dyn std::borrow::Borrow<Key>);
+    fn contains(parameter: &Self::Parameter, key: &dyn std::borrow::Borrow<Key>) -> bool;
 }
 
 #[cfg(feature = "r1cs")]
 pub mod constraints {
+    use std::borrow::Borrow;
+
     use ark_ff::{PrimeField, ToBytes};
     use ark_r1cs_std::{
         prelude::{AllocVar, Boolean, EqGadget},
@@ -30,11 +32,11 @@ pub mod constraints {
 
         fn insert(
             param: &mut Self::ParameterVar,
-            key: &dyn AsRef<KeyVar>,
+            key: &dyn Borrow<KeyVar>,
         ) -> Result<(), SynthesisError>;
         fn contains(
             param: &Self::ParameterVar,
-            key: &dyn AsRef<KeyVar>,
+            key: &dyn Borrow<KeyVar>,
         ) -> Result<Boolean<F>, SynthesisError>;
     }
 }

@@ -112,16 +112,16 @@ where
 
     fn insert(
         param: &mut Self::ParameterVar,
-        key: &dyn AsRef<KeyVar>,
+        key: &dyn Borrow<KeyVar>,
     ) -> Result<(), SynthesisError> {
-        let _ = param.insert(&key.as_ref().to_bytes()?)?;
+        let _ = param.insert(&key.borrow().to_bytes()?)?;
         Ok(())
     }
 
     fn contains(
         param: &Self::ParameterVar,
-        key: &dyn AsRef<KeyVar>,
+        key: &dyn Borrow<KeyVar>,
     ) -> Result<Boolean<F>, SynthesisError> {
-        param.contains(&key.as_ref().to_bytes()?)
+        param.contains(&key.borrow().to_bytes()?)
     }
 }
