@@ -14,7 +14,6 @@ mod traits;
 pub use traits::*;
 
 /// Gadget for the `BloomFilter` struct.
-#[derive(Debug, Clone)]
 pub struct BloomFilterVar<
     const BITS: usize,
     const N_HASH: usize,
@@ -164,7 +163,7 @@ mod tests {
         MiMC, MiMCNonFeistelCRH,
     };
 
-    use crate::{constraints::PackedBitsVar, BloomFilter};
+    use crate::bloom::{constraints::PackedBitsVar, BloomFilter};
 
     use super::BloomFilterVar;
 
