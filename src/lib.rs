@@ -4,6 +4,8 @@
 
 /// Bloom Filter Module
 pub mod bloom;
+/// Sorted Merkle Tree Module
+pub mod sorted_merkle_tree;
 
 mod utils;
 
