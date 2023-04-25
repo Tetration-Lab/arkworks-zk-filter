@@ -125,3 +125,74 @@ where
         param.contains(&key.borrow().to_bytes()?)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use std::error::Error;
+
+    use ark_bn254::Fr;
+    use ark_ff::{to_bytes, One, Zero};
+    use ark_r1cs_std::{
+        fields::fp::FpVar,
+        prelude::{AllocVar, EqGadget},
+    };
+    use ark_relations::r1cs::ConstraintSystem;
+    use arkworks_mimc::{
+        constraints::{MiMCNonFeistelCRHGadget, MiMCVar},
+        params::{
+            mimc_7_91_bn254::{MIMC_7_91_BN254_PARAMS, MIMC_7_91_BN254_ROUND_KEYS},
+            round_keys_contants_to_vec,
+        },
+        MiMC, MiMCNonFeistelCRH,
+    };
+
+    use crate::{
+        bloom::{constraints::BloomFilterVar, BloomFilter},
+        constraints::FilterGadget,
+    };
+
+    const BITS: usize = 8;
+    const N_HASH: usize = 1;
+
+    type BloomFilterTest =
+        BloomFilter<BITS, N_HASH, Fr, MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>>;
+    type BloomFilterVarTest = BloomFilterVar<
+        BITS,
+        N_HASH,
+        Fr,
+        MiMCNonFeistelCRH<Fr, MIMC_7_91_BN254_PARAMS>,
+        MiMCNonFeistelCRHGadget<Fr, MIMC_7_91_BN254_PARAMS>,
+    >;
+
+    #[test]
+    fn filter_gadget_trait_works() -> Result<(), Box<dyn Error>> {
+        let cs = ConstraintSystem::<Fr>::new_ref();
+        let mut bloom_filter = BloomFilterTest::new(MiMC::new(
+            1,
+            Fr::zero(),
+            round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
+        ));
+        let value = Fr::one();
+        let before = bloom_filter.to_packed_bits();
+        bloom_filter.insert(&to_bytes!(value)?);
+        let after = bloom_filter.to_packed_bits();
+
+        let mut filter_var = BloomFilterVarTest::new(
+            Vec::<FpVar<_>>::new_witness(cs.clone(), || Ok(before))?,
+            MiMCVar::new_constant(cs.clone(), bloom_filter.hasher)?,
+        );
+
+        let value_var = FpVar::new_witness(cs.clone(), || Ok(value))?;
+        let after_var = Vec::<FpVar<_>>::new_witness(cs.clone(), || Ok(after))?;
+
+        <BloomFilterVarTest as FilterGadget<_, Fr, FpVar<Fr>>>::insert(
+            &mut filter_var,
+            &value_var,
+        )?;
+        after_var.enforce_equal(&filter_var.packed_bits.0)?;
+
+        assert!(cs.is_satisfied()?, "Should be satisfied");
+
+        Ok(())
+    }
+}
