@@ -17,8 +17,7 @@ ark-crypto-primitives = { version = "^0.3.0", default-features = false }
 ark-std = { version = "^0.3.0", default-features = false }
 ark-bn254 = { version = "^0.3.0", default-features = false, features = ["curve"] }
 ark-groth16 = { version = "^0.3.0", default-features = false, features = ["parallel"] }
-arkworks-mimc = { version = "^0.2.0", default-features = false, features = ["r1cs", "mimc-7-91-bn254"] }
-
+arkworks-mimc = { version = "^0.3.0", default-features = false, features = ["r1cs", "mimc-7-91-bn254"] }
 
 [features]
 default = []

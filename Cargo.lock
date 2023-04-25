@@ -237,9 +237,9 @@ dependencies = [
 
 [[package]]
 name = "arkworks-mimc"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62fd72df93b1a879c1a55bd09696da2416f26170e88c876c704d378e018b65c2"
+checksum = "1754f52e36264567503495be341d76093a0f4201a8887d6c54eb8d6351696583"
 dependencies = [
  "ark-crypto-primitives",
  "ark-ff",
