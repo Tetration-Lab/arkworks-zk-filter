@@ -1,7 +1,13 @@
+//! This crate provides implementations of various filters.
+//! A filter is a data structure that can be used to test whether an element is a member of a set.
+//! It may produce false positives, but never false negatives.
+
+/// Bloom Filter Module
 pub mod bloom;
 
 mod utils;
 
+/// Filter trait
 pub trait Filter<Key>
 where
     Key: ark_ff::ToBytes + PartialEq + Clone + std::fmt::Debug,
@@ -23,6 +29,7 @@ pub mod constraints {
     };
     use ark_relations::r1cs::SynthesisError;
 
+    /// FilterGadget trait specifies the constraints for a filter.
     pub trait FilterGadget<F: PrimeField, Key, KeyVar>
     where
         Key: ToBytes + PartialEq + Clone + std::fmt::Debug,
