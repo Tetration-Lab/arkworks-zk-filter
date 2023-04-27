@@ -1,6 +1,9 @@
 use ark_crypto_primitives::{crh::TwoToOneCRH, CRH};
 use ark_ff::{BigInteger, PrimeField};
 
+#[cfg(feature = "r1cs")]
+pub mod constraints;
+
 pub struct SortedMerkleTree<
     const HEIGHT: usize,
     F: PrimeField,
