@@ -35,7 +35,7 @@ impl<const HEIGHT: usize, F: PrimeField, H: CRH<Output = F> + TwoToOneCRH<Output
                     let left = chunk[0];
                     let right = chunk[1];
                     <H as TwoToOneCRH>::evaluate(
-                        &param_tto_crh,
+                        param_tto_crh,
                         &left.into_repr().to_bytes_le(),
                         &right.into_repr().to_bytes_le(),
                     )
@@ -75,7 +75,7 @@ impl<const HEIGHT: usize, F: PrimeField, H: CRH<Output = F> + TwoToOneCRH<Output
         param_tto_crh: <H as TwoToOneCRH>::Parameters,
     ) -> Self {
         let hashed_leafs = values
-            .into_iter()
+            .iter()
             .map(|e| {
                 <H as CRH>::evaluate(&param_crh, &e.into_repr().to_bytes_le())
                     .expect("Should able to hash")
@@ -140,6 +140,6 @@ mod tests {
             Fr::zero(),
             round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
         );
-        let _ = Tree::empty(None, mimc.clone(), mimc.clone());
+        let _ = Tree::empty(None, mimc.clone(), mimc);
     }
 }

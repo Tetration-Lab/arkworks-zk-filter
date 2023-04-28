@@ -269,7 +269,7 @@ impl<
 
         //TODO: construct index using is_left vec and check index right = index left + 1
 
-        Ok(is_left_valid.and(&is_right_valid)?)
+        is_left_valid.and(&is_right_valid)
     }
 }
 
@@ -319,7 +319,7 @@ mod tests {
             &values,
             None,
             mimc.clone(),
-            mimc.clone(),
+            mimc,
         ));
 
         let root_var = FpVar::new_input(cs.clone(), || Ok(tree.borrow().root))?;
@@ -327,10 +327,10 @@ mod tests {
             RefCell::clone(&tree),
             root_var,
             mimc_var.clone(),
-            mimc_var.clone(),
+            mimc_var,
         );
 
-        let values_var = Vec::<FpVar<Fr>>::new_witness(cs.clone(), || Ok(values))?;
+        let values_var = Vec::<FpVar<Fr>>::new_witness(cs, || Ok(values))?;
         let _is_contained = tree_var.contains(&values_var[0])?;
 
         //let root = tree.root;
