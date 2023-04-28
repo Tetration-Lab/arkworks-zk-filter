@@ -315,20 +315,10 @@ mod tests {
             Fr::from(4),
             Fr::from(5),
         ];
-        let tree = RefCell::new(Tree::new_from_values(
-            &values,
-            None,
-            mimc.clone(),
-            mimc,
-        ));
+        let tree = RefCell::new(Tree::new_from_values(&values, None, mimc.clone(), mimc));
 
         let root_var = FpVar::new_input(cs.clone(), || Ok(tree.borrow().root))?;
-        let tree_var = TreeVar::new(
-            RefCell::clone(&tree),
-            root_var,
-            mimc_var.clone(),
-            mimc_var,
-        );
+        let tree_var = TreeVar::new(RefCell::clone(&tree), root_var, mimc_var.clone(), mimc_var);
 
         let values_var = Vec::<FpVar<Fr>>::new_witness(cs, || Ok(values))?;
         let _is_contained = tree_var.contains(&values_var[0])?;
