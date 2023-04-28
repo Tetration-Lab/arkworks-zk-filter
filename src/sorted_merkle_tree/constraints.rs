@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::{cell::RefCell, cmp::Ordering};
 
 use ark_crypto_primitives::{
     crh::{TwoToOneCRH, TwoToOneCRHGadget},
@@ -7,7 +7,7 @@ use ark_crypto_primitives::{
 use ark_ff::{BigInteger, FpParameters, PrimeField};
 use ark_r1cs_std::{
     fields::fp::FpVar,
-    prelude::{AllocVar, Boolean, FieldVar},
+    prelude::{AllocVar, Boolean, EqGadget, FieldVar},
     R1CSVar, ToBytesGadget,
 };
 use ark_relations::{ns, r1cs::SynthesisError};
@@ -54,7 +54,13 @@ impl<
     pub fn contains(&self, value: &FpVar<F>) -> Result<Boolean<F>, SynthesisError> {
         let cs = self.root.cs();
         let tree = self.tree.borrow();
-        let (index, nearby, path) = match value.value() {
+        let max = {
+            let mut bi = <<F as PrimeField>::Params as FpParameters>::MODULUS;
+            bi.sub_noborrow(&F::BigInt::from(1));
+            F::from_repr(bi).expect("Should convert from modulus")
+        };
+        println!("max: {}", max);
+        let (is_left, nearby, path) = match value.value() {
             Ok(value) => {
                 let hashed =
                     <H as CRH>::evaluate(&tree.param_crh, &value.into_repr().to_bytes_le())
@@ -70,8 +76,7 @@ impl<
                         (true, false) => (
                             (
                                 tree.leaf[SortedMerkleTree::<HEIGHT, F, H>::LEAF_LEN - 1],
-                                F::from_repr(<<F as PrimeField>::Params as FpParameters>::MODULUS)
-                                    .expect("Should convert from modulus"),
+                                max,
                             ),
                             (Some(i - 1), None),
                             (vec![], vec![F::zero(); HEIGHT - 2]),
@@ -82,31 +87,52 @@ impl<
                             (vec![F::zero(); HEIGHT - 2], vec![]),
                         ),
                         (false, false) => (
-                            (
-                                F::zero(),
-                                F::from_repr(<<F as PrimeField>::Params as FpParameters>::MODULUS)
-                                    .expect("Should convert from modulus"),
-                            ),
+                            (F::zero(), max),
                             (None, None),
                             (vec![F::zero(); HEIGHT - 2], vec![F::zero(); HEIGHT - 2]),
                         ),
                     },
                     Err(_) => (
-                        (
-                            F::zero(),
-                            F::from_repr(<<F as PrimeField>::Params as FpParameters>::MODULUS)
-                                .expect("Should convert from modulus"),
-                        ),
+                        (F::zero(), max),
                         (None, None),
                         (vec![F::zero(); HEIGHT - 2], vec![F::zero(); HEIGHT - 2]),
                     ),
                 };
 
+                let mut is_left = (vec![], vec![]);
                 match index {
-                    (None, None) => todo!(),
+                    (None, None) => {}
                     _ => {
                         let mut tmp_leaf = tree.leaf.to_vec();
                         while tmp_leaf.len() > 1 {
+                            if let Some(i) = &mut index.0 {
+                                match *i % 2 == 0 {
+                                    true => {
+                                        proof.0.push(tmp_leaf[*i + 1]);
+                                        is_left.0.push(true);
+                                    }
+                                    false => {
+                                        proof.0.push(tmp_leaf[*i - 1]);
+                                        is_left.0.push(false);
+                                    }
+                                }
+                                *i /= 2;
+                            }
+
+                            if let Some(i) = &mut index.1 {
+                                match *i % 2 == 0 {
+                                    true => {
+                                        proof.1.push(tmp_leaf[*i + 1]);
+                                        is_left.1.push(true);
+                                    }
+                                    false => {
+                                        proof.1.push(tmp_leaf[*i - 1]);
+                                        is_left.1.push(false);
+                                    }
+                                }
+                                *i /= 2;
+                            }
+
                             tmp_leaf = tmp_leaf
                                 .chunks(2)
                                 .map(|chunk| {
@@ -120,20 +146,18 @@ impl<
                                     .expect("Should able to hash")
                                 })
                                 .collect::<Vec<_>>();
-
-                            if let Some(i) = &mut index.0 {
-                                proof.0.push(tmp_leaf[*i + 1]);
-                                *i /= 2;
-                            }
-
-                            if let Some(i) = &mut index.1 {
-                                proof.1.push(tmp_leaf[*i + 1]);
-                                *i /= 2;
-                            }
                         }
                     }
                 };
 
+                let left_is_left_var =
+                    Vec::<Boolean<F>>::new_witness(ns!(cs, "proof: left is left"), || {
+                        Ok(is_left.0)
+                    })?;
+                let right_is_left_var =
+                    Vec::<Boolean<F>>::new_witness(ns!(cs, "proof: right is left"), || {
+                        Ok(is_left.1)
+                    })?;
                 let left_hashed_var =
                     FpVar::new_witness(ns!(cs, "proof: left hash"), || Ok(nearby.0))?;
                 let left_proof_var =
@@ -144,7 +168,7 @@ impl<
                     Vec::<FpVar<F>>::new_witness(ns!(cs, "proof: right path"), || Ok(proof.1))?;
 
                 (
-                    index,
+                    (left_is_left_var, right_is_left_var),
                     (left_hashed_var, right_hashed_var),
                     (left_proof_var, right_proof_var),
                 )
@@ -154,7 +178,14 @@ impl<
                 //(proof_index, hashed_var, proof_var)
             }
             Err(_) => {
-                //MerkleTree;
+                let is_left: (Vec<Boolean<F>>, Vec<Boolean<F>>) = (
+                    Vec::<Boolean<F>>::new_witness(ns!(cs, "proof: left is left"), || {
+                        Ok(vec![false; HEIGHT - 2])
+                    })?,
+                    Vec::<Boolean<F>>::new_witness(ns!(cs, "proof: right is left"), || {
+                        Ok(vec![false; HEIGHT - 2])
+                    })?,
+                );
                 let nearby = (
                     FpVar::new_witness(ns!(cs, "proof: left hash"), || Ok(F::zero()))?,
                     FpVar::new_witness(ns!(cs, "proof: right hash"), || Ok(F::zero()))?,
@@ -167,91 +198,84 @@ impl<
                         Ok(vec![F::zero(); HEIGHT - 2])
                     })?,
                 );
-                ((None, None), nearby, proof)
+                (is_left, nearby, proof)
             }
         };
 
+        println!("length: {}", is_left.0.len());
+        println!("height: {}", HEIGHT);
+        println!("leaf_len: {}", Self::LEAF_LEN);
+
         let min = FpVar::constant(F::zero());
-        let max = FpVar::constant(
-            F::from_repr(<<F as PrimeField>::Params as FpParameters>::MODULUS)
-                .expect("Should convert from modulus"),
-        );
+        let max = FpVar::constant(max);
 
         let calculated_hashed_leaf =
             <HG as CRHGadget<H, F>>::evaluate(&self.param_crh, &value.to_bytes()?)?;
-        //let is_not_nearby = calculated_hashed_leaf
-        //.is_cmp(&proof.1 .0, Ordering::Greater, false)?
-        //.and(&calculated_hashed_leaf.is_cmp(&proof.1 .0, Ordering::Less, false)?)?;
-        let (_, calculated_root) = path.0.iter().zip(path.1.iter()).try_fold(
-            (
-                (index.0.unwrap_or_default(), index.1.unwrap_or_default()),
+        let calculated_root = path
+            .0
+            .iter()
+            .zip(path.1.iter())
+            .zip(is_left.0.iter())
+            .zip(is_left.1.iter())
+            .try_fold(
                 nearby.clone(),
-            ),
-            |((left_ind, right_ind), (prev_left, prev_right)),
-             (next_left, next_right)|
-             -> Result<_, SynthesisError> {
-                let left = match left_ind % 2 == 0 {
-                    true => <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                        &self.param_tto_crh,
-                        &prev_left.to_bytes()?,
-                        &next_left.to_bytes()?,
-                    )?,
-                    false => <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                        &self.param_tto_crh,
-                        &next_left.to_bytes()?,
-                        &prev_left.to_bytes()?,
-                    )?,
-                };
-                let right = match right_ind % 2 == 0 {
-                    true => <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                        &self.param_tto_crh,
-                        &prev_right.to_bytes()?,
-                        &next_right.to_bytes()?,
-                    )?,
-                    false => <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-                        &self.param_tto_crh,
-                        &next_right.to_bytes()?,
-                        &prev_right.to_bytes()?,
-                    )?,
-                };
-                Ok(((left_ind / 2, right_ind / 2), (left, right)))
-            },
-        )?;
-        //calculated_hashed_leaf
-        //.is_cmp(&nearby.0, Ordering::Greater, false)?
-        //.and(&nearby.0.is_eq(&min)?.or(other));
-        //let is_included_nearby = calculated_hashed_leaf.is_eq(&proof.1 .0)?;
-        //let (calculated_root, _) = proof.into_iter().try_fold(
-        //(calculated_hashed_leaf.clone(), index),
-        //|prev, next| -> Result<_, SynthesisError> {
-        //Ok((
-        //match index % 2 == 0 {
-        //true => <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-        //&self.param_tto_crh,
-        //&prev.0.to_bytes()?,
-        //&next.to_bytes()?,
-        //),
-        //false => <HG as TwoToOneCRHGadget<H, F>>::evaluate(
-        //&self.param_tto_crh,
-        //&next.to_bytes()?,
-        //&prev.0.to_bytes()?,
-        //),
-        //}?,
-        //index / 2,
-        //))
-        //},
-        //)?;
+                |(prev_left, prev_right),
+                 (((next_left, next_right), left_is_left), right_is_left)|
+                 -> Result<_, SynthesisError> {
+                    Ok((
+                        left_is_left.select(
+                            &<HG as TwoToOneCRHGadget<H, F>>::evaluate(
+                                &self.param_tto_crh,
+                                &prev_left.to_bytes()?,
+                                &next_left.to_bytes()?,
+                            )?,
+                            &<HG as TwoToOneCRHGadget<H, F>>::evaluate(
+                                &self.param_tto_crh,
+                                &next_left.to_bytes()?,
+                                &prev_left.to_bytes()?,
+                            )?,
+                        )?,
+                        right_is_left.select(
+                            &<HG as TwoToOneCRHGadget<H, F>>::evaluate(
+                                &self.param_tto_crh,
+                                &prev_right.to_bytes()?,
+                                &next_right.to_bytes()?,
+                            )?,
+                            &<HG as TwoToOneCRHGadget<H, F>>::evaluate(
+                                &self.param_tto_crh,
+                                &next_right.to_bytes()?,
+                                &prev_right.to_bytes()?,
+                            )?,
+                        )?,
+                    ))
+                },
+            )?;
+        let is_left_valid = calculated_hashed_leaf
+            .is_cmp(&nearby.0, Ordering::Greater, false)?
+            .and(
+                &nearby
+                    .0
+                    .is_eq(&min)?
+                    .or(&calculated_root.0.is_eq(&self.root)?)?,
+            )?;
+        let is_right_valid = calculated_hashed_leaf
+            .is_cmp(&nearby.1, Ordering::Less, false)?
+            .and(
+                &nearby
+                    .1
+                    .is_eq(&max)?
+                    .or(&calculated_root.1.is_eq(&self.root)?)?,
+            )?;
 
-        //calculated_hashed_leaf
-        //.is_eq(&hashed_leaf)?
-        //.and(&calculated_root.is_eq(&self.root)?)
-        Ok(Boolean::FALSE)
+        //TODO: construct index using is_left vec and check index right = index left + 1
+
+        Ok(is_left_valid.and(&is_right_valid)?)
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, error::Error, rc::Rc};
+    use std::{cell::RefCell, error::Error};
 
     use ark_bn254::Fr;
     use ark_ff::Zero;
@@ -307,7 +331,7 @@ mod tests {
         );
 
         let values_var = Vec::<FpVar<Fr>>::new_witness(cs.clone(), || Ok(values))?;
-        let is_contained = tree_var.contains(&values_var[0])?;
+        let _is_contained = tree_var.contains(&values_var[0])?;
 
         //let root = tree.root;
 
