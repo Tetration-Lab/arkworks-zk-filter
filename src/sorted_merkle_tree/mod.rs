@@ -5,7 +5,6 @@ use ark_ff::{BigInteger, PrimeField};
 pub mod constraints;
 
 mod traits;
-use itertools::Itertools;
 pub use traits::*;
 
 #[derive(Clone)]
@@ -91,11 +90,9 @@ impl<const HEIGHT: usize, F: PrimeField, H: CRH<Output = F> + TwoToOneCRH<Output
         param_crh: <H as CRH>::Parameters,
         param_tto_crh: <H as TwoToOneCRH>::Parameters,
     ) -> Self {
-        let unique_leafs = hashed_leafs
-            .into_iter()
-            .unique()
-            .copied()
-            .collect::<Vec<_>>();
+        let mut unique_leafs = hashed_leafs.to_vec();
+        unique_leafs.sort_unstable();
+        unique_leafs.dedup();
         let len = unique_leafs.len();
         let hashed_empty_leaf = <H as CRH>::evaluate(
             &param_crh,
