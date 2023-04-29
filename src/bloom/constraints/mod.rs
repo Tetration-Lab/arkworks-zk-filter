@@ -284,6 +284,30 @@ mod tests {
     }
 
     #[test]
+    fn contains_included_dont_works() {
+        let mut filter = BloomFilterTest::new(MiMC::new(
+            1,
+            Fr::zero(),
+            round_keys_contants_to_vec(&MIMC_7_91_BN254_ROUND_KEYS),
+        ));
+        let input = b"hello world";
+        let _ = filter.insert(input);
+
+        let cs = ConstraintSystem::<Fr>::new_ref();
+        ContainCircuit {
+            bits: filter.to_packed_bits(),
+            input: input.to_vec(),
+            hasher: filter.hasher.clone(),
+        }
+        .generate_constraints(cs.clone())
+        .expect("should generate constraints");
+        assert!(
+            !cs.is_satisfied().expect("should calculate satisfiability"),
+            "should be not satisfied"
+        );
+    }
+
+    #[test]
     fn correctly_pack_bits() {
         let cs = ConstraintSystem::<Fr>::new_ref();
         let mut filter = BloomFilterTest::new(MiMC::new(
